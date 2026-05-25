@@ -1,97 +1,74 @@
-import wave
-import struct
-import math
+import numpy as np
 import matplotlib.pyplot as plt
+from scipy.io import wavfile
+import time
 
-# ввод файла
-filename = input("Введите имя wav файла: ")
+start_time = time.time()
 
-# проверка только на .wav
-if not filename.lower().endswith(".wav"):
-    print("Файл должен быть .wav")
-    exit()
+#чтение файла
+filename = "12.wav"
+sample_rate, data = wavfile.read(filename)
 
-try:
-    wav = wave.open(filename, 'r')
-except:
-    print("Ошибка открытия файла")
-    exit()
+print(f"Частота дискретизации:", sample_rate, " Гц")
 
-# параметры файла
-sample_rate = wav.getframerate()
-n_frames = wav.getnframes()
+#количество отсчётов
+while True:
+    try:
+        n = int(input(f"Введите количество отсчетов: "))
+        if 1 <= n <= len(data):
+            break
+        else:
+            print(f"Число должно быть от 1 до ", len(data))
+    except ValueError:
+        print("Ошибка ввода")
 
-# ввод количества отсчетов
-try:
-    n = int(input("Введите количество отсчетов: "))
-except:
-    print("Ошибка ввода")
-    exit()
-
-n = min(n, n_frames)
-
-# чтение данных
-frames = wav.readframes(n)
-wav.close()
-
-# преобразование в числа
-data = []
-for i in range(0, len(frames), 2):
-    value = struct.unpack('<h', frames[i:i+2])[0]
-    data.append(value)
-
-# обрезаем до нужного количества
 data_cut = data[:n]
 
-
-# 1.1 Точечный график
-plt.figure()
-plt.scatter(range(n), data_cut)
-plt.title("Отсчеты сигнала")
+#точечный график
+plt.figure(figsize=(10, 4))
+plt.plot(range(n), data_cut, 'o', markersize=2)
+plt.title("Точечный график")
 plt.xlabel("Номер отсчета")
 plt.ylabel("Амплитуда")
-plt.grid()
+plt.grid(True)
 
 
-# 1.2 Осциллограмма
-time_axis = []
-for i in range(n):
-    time_axis.append(i / sample_rate)
+#осциллограмма
+time_axis = np.arange(len(data)) / sample_rate
 
-plt.figure()
-plt.plot(time_axis, data_cut)
+plt.figure(figsize=(10, 4))
+plt.plot(time_axis, data)
 plt.title("Осциллограмма")
-plt.xlabel("Время (сек)")
+plt.xlabel("Секунды")
 plt.ylabel("Амплитуда")
-plt.grid()
+plt.grid(True)
 
 
-# 1.3 Реальная часть ДПФ
-real_part = []
-freq = []
+#дпф
+fft_result = np.fft.fft(data)          # комплексное ДПФ
+real_part = np.real(fft_result)        # Re(ДПФ)
+freq_axis = np.fft.fftfreq(len(data), d=1/sample_rate)
 
-for k in range(n):
-    re = 0
-    for t in range(n):
-        angle = 2 * math.pi * k * t / n
-        re += data[t] * math.cos(angle)
-    real_part.append(re)
-    freq.append(k * sample_rate / n)
+#положительные частоты
+half_n = len(data) // 2
+freq_axis = freq_axis[:half_n]
+real_part = real_part[:half_n]
 
-plt.figure()
-plt.scatter(freq, real_part)
-plt.title("Реальная часть ДПФ")
-plt.xlabel("Частота (Гц)")
+plt.figure(figsize=(10, 4))
+plt.plot(freq_axis, real_part)
+plt.title("ДПФ")
+plt.xlabel("Частота")
 plt.ylabel("Re")
-plt.grid()
+plt.grid(True)
 
-
-# 1.4 Гистограмма
-plt.figure()
-plt.hist(data, bins=30)
+#Гистограмма
+plt.figure(figsize=(10, 4))
+plt.hist(data, bins=50, edgecolor='black')
 plt.title("Гистограмма")
 plt.xlabel("Амплитуда")
-plt.ylabel("Количество")
-plt.grid()
+plt.ylabel("Отсчёт")
+plt.grid(True, axis='y')
 
 plt.show()
+
+print(f"Время выполнения: {time.time() - start_time:.4f} секунд")
